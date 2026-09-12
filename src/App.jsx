@@ -1,4 +1,6 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+
+const PRODUCTS_ENDPOINT = '/functions/v1/apple-produk'
 
 function SplashPage() {
   return (
@@ -21,7 +23,61 @@ function Header({ onCart }) {
   )
 }
 
-function HomePage() {
+function getProducts(response) {
+  if (Array.isArray(response)) return response
+  if (Array.isArray(response?.data)) return response.data
+  if (Array.isArray(response?.products)) return response.products
+  return []
+}
+
+function ProductCard({ product, onProduct }) {
+  return (
+    <button className="product product-button" onClick={() => onProduct(product.item_group_id)}>
+      <div>{product.title || product.item_group_id || 'Product'}</div>
+      {product.variant_size?.[0]?.price != null && <div>RM {product.variant_size[0].price}</div>}
+    </button>
+  )
+}
+
+function ProductList({ products, onProduct }) {
+  if (!products.length) return <div className="muted">No products available.</div>
+
+  return (
+    <div className="products">
+      {products.map((product) => (
+        <ProductCard key={product.item_group_id} product={product} onProduct={onProduct} />
+      ))}
+    </div>
+  )
+}
+
+function HomePage({ onProduct }) {
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadProducts() {
+      try {
+        setLoading(true)
+        setError('')
+        const response = await fetch(PRODUCTS_ENDPOINT)
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+        const data = await response.json()
+        if (!cancelled) setProducts(getProducts(data))
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Failed to load products')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadProducts()
+    return () => { cancelled = true }
+  }, [])
+
   return (
     <section>
       <div className="search">Search products</div>
@@ -34,31 +90,58 @@ function HomePage() {
         <button>Watch</button>
       </div>
       <div className="section-title">Recommended Products</div>
-      <div className="products">
-        <div className="product">iPhone</div>
-        <div className="product">Mac</div>
-        <div className="product">iPad</div>
-      </div>
+      {loading && <div className="muted">Loading products...</div>}
+      {error && <div className="muted">{error}</div>}
+      {!loading && !error && <ProductList products={products} onProduct={onProduct} />}
     </section>
   )
 }
 
 function ShopPage({ onProduct }) {
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [filter, setFilter] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadProducts() {
+      try {
+        setLoading(true)
+        setError('')
+        const response = await fetch(PRODUCTS_ENDPOINT)
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+        const data = await response.json()
+        if (!cancelled) setProducts(getProducts(data))
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Failed to load products')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadProducts()
+    return () => { cancelled = true }
+  }, [])
+
+  const filteredProducts = filter
+    ? products.filter((product) => product.product_type === filter)
+    : products
+
   return (
     <section>
       <div className="search">Search products</div>
       <div className="filters">
-        <button>iPhone</button>
-        <button>Mac</button>
-        <button>iPad</button>
-        <button>Watch</button>
+        <button onClick={() => setFilter('iPhone')}>iPhone</button>
+        <button onClick={() => setFilter('Mac')}>Mac</button>
+        <button onClick={() => setFilter('iPad')}>iPad</button>
+        <button onClick={() => setFilter('Watch')}>Watch</button>
       </div>
-      <div className="products catalog-products">
-        <button className="product product-button" onClick={onProduct}>iPhone</button>
-        <button className="product product-button" onClick={onProduct}>Mac</button>
-        <button className="product product-button" onClick={onProduct}>iPad</button>
-        <button className="product product-button" onClick={onProduct}>Apple Watch</button>
-      </div>
+      {filter && <button className="link-button" onClick={() => setFilter('')}>Clear filter</button>}
+      {loading && <div className="muted">Loading products...</div>}
+      {error && <div className="muted">{error}</div>}
+      {!loading && !error && <ProductList products={filteredProducts} onProduct={onProduct} />}
     </section>
   )
 }
@@ -110,16 +193,47 @@ function ProfilePage() {
   )
 }
 
-function ProductDetailPage({ onBack }) {
+function ProductDetailPage({ itemGroupId, onBack }) {
+  const [product, setProduct] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadProduct() {
+      try {
+        setLoading(true)
+        setError('')
+        const response = await fetch(`${PRODUCTS_ENDPOINT}/${encodeURIComponent(itemGroupId)}`)
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+        const data = await response.json()
+        const detail = data?.data || data
+        if (!cancelled) setProduct(detail)
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Failed to load product')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    if (itemGroupId) loadProduct()
+    return () => { cancelled = true }
+  }, [itemGroupId])
+
+  if (loading) return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><div className="muted">Loading product...</div></div>
+  if (error) return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><div className="muted">{error}</div></div>
+  if (!product) return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><div className="muted">Product not found.</div></div>
+
   return (
     <div className="full-page-content">
       <button className="back-button" onClick={onBack}>← Back</button>
       <div className="detail-image">Product Image</div>
-      <h1>iPhone</h1>
-      <div className="price">RM 2,999</div>
-      <div className="detail-section"><strong>Color</strong><div className="option-row"><button>Black</button><button>White</button><button>Pink</button></div></div>
-      <div className="detail-section"><strong>Storage</strong><div className="option-row"><button>256GB</button><button>512GB</button></div></div>
-      <div className="detail-section"><strong>Description</strong><p>Product description...</p></div>
+      <h1>{product.title || product.item_group_id}</h1>
+      {product.variant_size?.[0]?.price != null && <div className="price">RM {product.variant_size[0].price}</div>}
+      <div className="detail-section"><strong>Color</strong><div className="option-row">{(product.variant_color || []).map((color) => <button key={color}>{color}</button>)}</div></div>
+      <div className="detail-section"><strong>Storage</strong><div className="option-row">{(product.variant_size || []).map((size) => <button key={size.size || size}>{size.size || size}</button>)}</div></div>
+      <div className="detail-section"><strong>Description</strong><p>{product.description || 'Product description...'}</p></div>
       <div className="detail-actions"><button>Add to Cart</button><button className="primary-button">Buy Now</button></div>
     </div>
   )
@@ -179,7 +293,7 @@ function BottomNav({ activePage, onNavigate }) {
 
 function AppShell({ activePage, onNavigate, onCart, onProduct }) {
   const content = {
-    home: <HomePage />,
+    home: <HomePage onProduct={onProduct} />,
     shop: <ShopPage onProduct={onProduct} />,
     profile: <ProfilePage />,
   }[activePage]
@@ -196,15 +310,21 @@ function AppShell({ activePage, onNavigate, onCart, onProduct }) {
 export default function App() {
   const [activePage, setActivePage] = useState('home')
   const [fullPage, setFullPage] = useState(null)
+  const [selectedItemGroupId, setSelectedItemGroupId] = useState(null)
   const [cartOpen, setCartOpen] = useState(false)
 
-  if (fullPage === 'product') return <div className="app"><ProductDetailPage onBack={() => setFullPage(null)} /></div>
+  const openProduct = (itemGroupId) => {
+    setSelectedItemGroupId(itemGroupId)
+    setFullPage('product')
+  }
+
+  if (fullPage === 'product') return <div className="app"><ProductDetailPage itemGroupId={selectedItemGroupId} onBack={() => setFullPage(null)} /></div>
   if (fullPage === 'checkout') return <div className="app"><CheckoutPage onBack={() => setFullPage(null)} /></div>
   if (fullPage === 'tracking') return <div className="app"><TrackingPage onBack={() => setFullPage(null)} /></div>
 
   return (
     <div className="app">
-      <AppShell activePage={activePage} onNavigate={setActivePage} onCart={() => setCartOpen(true)} onProduct={() => setFullPage('product')} />
+      <AppShell activePage={activePage} onNavigate={setActivePage} onCart={() => setCartOpen(true)} onProduct={openProduct} />
       <Overlay cartOpen={cartOpen} onCloseCart={() => setCartOpen(false)} />
     </div>
   )
