@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useLocation, useNavigate, useParams, Routes, Route } from 'react-router-dom'
 import {
   SplashPage,
   Header,
@@ -32,15 +33,56 @@ export {
   AppShell,
 }
 
+function ProductRoute({ addToCart, buyNow, cartCount, cartOpen, setCartOpen, cartItems, removeFromCart }) {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const from = location.state?.from || 'home'
+
+  return (
+    <>
+      <ProductDetailPage
+        itemGroupId={id}
+        onBack={() => navigate(from === 'shop' ? '/shop' : '/')}
+        onAddToCart={(item) => {
+          addToCart(item)
+          navigate(from === 'shop' ? '/shop' : '/')
+        }}
+        onBuyNow={buyNow}
+        onCart={() => setCartOpen(true)}
+        cartCount={cartCount}
+      />
+      {cartOpen && (
+        <CartDrawer
+          items={cartItems}
+          onClose={() => setCartOpen(false)}
+          onRemove={removeFromCart}
+          onCheckout={() => {
+            setCartOpen(false)
+            navigate('/checkout')
+          }}
+        />
+      )}
+    </>
+  )
+}
+
 function App() {
-  const [activePage, setActivePage] = useState('home')
-  const [selectedProduct, setSelectedProduct] = useState(null)
+  const navigate = useNavigate()
+  const location = useLocation()
   const [cartOpen, setCartOpen] = useState(false)
   const [cartItems, setCartItems] = useState([])
   const [user, setUser] = useState(null)
   const [orderId, setOrderId] = useState(null)
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
+
+  const activePage =
+    location.pathname === '/shop'
+      ? 'shop'
+      : location.pathname === '/profile'
+        ? 'profile'
+        : 'home'
 
   function addToCart({ product, color, size, price }) {
     const key = `${product.item_group_id}-${getVariantValue(color, 'color')}-${getVariantValue(size, 'size')}`
@@ -59,31 +101,39 @@ function App() {
     setCartItems((items) => items.filter((item) => item.key !== key))
   }
 
-  function buyNow(item) {
-    addToCart(item)
-    setSelectedProduct(null)
-    setActivePage('checkout')
+  function navigatePage(page) {
+    const routes = {
+      home: '/',
+      shop: '/shop',
+      profile: '/profile',
+      checkout: '/checkout',
+      tracking: '/tracking',
+    }
+    navigate(routes[page] || '/')
   }
 
-  if (selectedProduct) {
+  function openProduct(itemGroupId) {
+    navigate(`/product/${encodeURIComponent(itemGroupId)}`, {
+      state: { from: activePage },
+    })
+  }
+
+  function buyNow(item) {
+    addToCart(item)
+    navigate('/checkout')
+  }
+
+  function renderShell(children) {
     return (
       <>
-        <ProductDetailPage
-          itemGroupId={selectedProduct}
-          onBack={() => setSelectedProduct(null)}
-          onAddToCart={(item) => {
-            addToCart(item)
-            setSelectedProduct(null)
-          }}
-          onBuyNow={buyNow}
+        <AppShell
+          activePage={activePage}
+          onNavigate={navigatePage}
           onCart={() => setCartOpen(true)}
           cartCount={cartCount}
-          activePage={activePage}
-          onNavigate={(page) => {
-            setSelectedProduct(null)
-            setActivePage(page)
-          }}
-        />
+        >
+          {children}
+        </AppShell>
         {cartOpen && (
           <CartDrawer
             items={cartItems}
@@ -91,8 +141,7 @@ function App() {
             onRemove={removeFromCart}
             onCheckout={() => {
               setCartOpen(false)
-              setSelectedProduct(null)
-              setActivePage('checkout')
+              navigate('/checkout')
             }}
           />
         )}
@@ -100,58 +149,54 @@ function App() {
     )
   }
 
-  if (activePage === 'checkout') {
-    return (
-      <CheckoutPage
-        onBack={() => setActivePage('home')}
-        onCart={() => setCartOpen(true)}
-        cartCount={cartCount}
-        user={user}
-        items={cartItems}
-        onOrderCreated={(id) => {
-          setOrderId(id)
-          setCartItems([])
-          setActivePage('tracking')
-        }}
-      />
-    )
-  }
-
-  if (activePage === 'tracking') {
-    return (
-      <TrackingPage
-        orderId={orderId}
-        onBack={() => setActivePage('home')}
-        onCart={() => setCartOpen(true)}
-        cartCount={cartCount}
-      />
-    )
-  }
-
   return (
-    <>
-      <AppShell
-        activePage={activePage}
-        onNavigate={setActivePage}
-        onCart={() => setCartOpen(true)}
-        cartCount={cartCount}
-      >
-        {activePage === 'home' && <HomePage onProduct={setSelectedProduct} />}
-        {activePage === 'shop' && <ShopPage onProduct={setSelectedProduct} />}
-        {activePage === 'profile' && <ProfilePage onUserChange={setUser} />}
-      </AppShell>
-      {cartOpen && (
-        <CartDrawer
-          items={cartItems}
-          onClose={() => setCartOpen(false)}
-          onRemove={removeFromCart}
-          onCheckout={() => {
-            setCartOpen(false)
-            setActivePage('checkout')
-          }}
-        />
-      )}
-    </>
+    <Routes>
+      <Route path="/" element={renderShell(<HomePage onProduct={openProduct} />)} />
+      <Route path="/shop" element={renderShell(<ShopPage onProduct={openProduct} />)} />
+      <Route path="/profile" element={renderShell(<ProfilePage onUserChange={setUser} />)} />
+      <Route
+        path="/product/:id"
+        element={
+          <ProductRoute
+            addToCart={addToCart}
+            buyNow={buyNow}
+            cartCount={cartCount}
+            cartOpen={cartOpen}
+            setCartOpen={setCartOpen}
+            cartItems={cartItems}
+            removeFromCart={removeFromCart}
+          />
+        }
+      />
+      <Route
+        path="/checkout"
+        element={
+          <CheckoutPage
+            onBack={() => navigate('/')}
+            onCart={() => setCartOpen(true)}
+            cartCount={cartCount}
+            user={user}
+            items={cartItems}
+            onOrderCreated={(id) => {
+              setOrderId(id)
+              setCartItems([])
+              navigate('/tracking')
+            }}
+          />
+        }
+      />
+      <Route
+        path="/tracking"
+        element={
+          <TrackingPage
+            orderId={orderId}
+            onBack={() => navigate('/')}
+            onCart={() => setCartOpen(true)}
+            cartCount={cartCount}
+          />
+        }
+      />
+    </Routes>
   )
 }
 
