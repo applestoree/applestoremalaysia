@@ -1,6 +1,15 @@
 import React from 'react'
 
-export default function BottomActionBar({ onAddToCart, onBuyNow, disabled = false }) {
+export default function BottomActionBar({
+  onAddToCart,
+  onBuyNow,
+  disabled = false,
+  children,
+}) {
+  if (children) {
+    return <div className="bottom-action-bar">{children}</div>
+  }
+
   return (
     <div className="bottom-action-bar">
       <button
