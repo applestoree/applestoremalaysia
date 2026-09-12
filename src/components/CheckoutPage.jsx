@@ -3,7 +3,7 @@ import { ORDERS_ENDPOINT } from '../constants'
 import { getVariantValue } from '../utils'
 import StandalonePageLayout from './StandalonePageLayout'
 
-export default function CheckoutPage({ onBack, user, items, onOrderCreated }) {
+export default function CheckoutPage({ onBack, onCart, cartCount, user, items, onOrderCreated }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [address] = useState(() => ({
@@ -69,7 +69,9 @@ export default function CheckoutPage({ onBack, user, items, onOrderCreated }) {
   return (
     <StandalonePageLayout
       onBack={onBack}
-      header={<h1>Checkout</h1>}
+      title="Checkout"
+      onCart={onCart}
+      cartCount={cartCount}
       bottomAction={
         <button className="primary-button" onClick={placeOrder} disabled={loading || !items.length}>
           {loading ? 'Creating Order...' : 'Place Order'}
