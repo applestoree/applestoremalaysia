@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { ORDERS_ENDPOINT } from '../constants'
 import { getVariantValue } from '../utils'
+import StandalonePageLayout from './StandalonePageLayout'
 
 export default function CheckoutPage({ onBack, user, items, onOrderCreated }) {
   const [loading, setLoading] = useState(false)
@@ -66,43 +67,40 @@ export default function CheckoutPage({ onBack, user, items, onOrderCreated }) {
   }
 
   return (
-    <div className="standalone-page">
-      <header className="standalone-header">
-        <button className="back-button" onClick={onBack}>← Back</button>
-        <h1>Checkout</h1>
-      </header>
-      <main className="standalone-main">
-        <div className="checkout-card">
-          <strong>Delivery Address</strong>
-          <p>{address.name || 'Name'} · {address.address_line_1 || 'Address'} · {address.phone || 'Phone'}</p>
-        </div>
-        <div className="checkout-card"><strong>Store</strong><p>Apple Store Malaysia</p></div>
-        <div className="checkout-card">
-          <strong>Shipping</strong>
-          <select value={shippingMethod} onChange={(event) => setShippingMethod(event.target.value)}>
-            <option value="Delivery">Delivery</option>
-            <option value="Store Pickup">Store Pickup</option>
-          </select>
-        </div>
-        <div className="checkout-card">
-          <strong>Payment</strong>
-          <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
-            <option value="Bank Transfer">Bank Transfer</option>
-            <option value="DuitNow QR">DuitNow QR</option>
-          </select>
-        </div>
-        <div className="checkout-card">
-          <strong>Items</strong>
-          {items.map((item) => <p key={item.key}>{item.product.title} × {item.quantity} — RM {(item.price * item.quantity).toLocaleString('en-MY')}</p>)}
-        </div>
-        <div className="order-summary"><span>Total</span><strong>RM {total.toLocaleString('en-MY')}</strong></div>
-        {error && <div className="error-message">{error}</div>}
-      </main>
-      <div className="standalone-bottom-action">
+    <StandalonePageLayout
+      onBack={onBack}
+      header={<h1>Checkout</h1>}
+      bottomAction={
         <button className="primary-button" onClick={placeOrder} disabled={loading || !items.length}>
           {loading ? 'Creating Order...' : 'Place Order'}
         </button>
+      }
+    >
+      <div className="checkout-card">
+        <strong>Delivery Address</strong>
+        <p>{address.name || 'Name'} · {address.address_line_1 || 'Address'} · {address.phone || 'Phone'}</p>
       </div>
-    </div>
+      <div className="checkout-card"><strong>Store</strong><p>Apple Store Malaysia</p></div>
+      <div className="checkout-card">
+        <strong>Shipping</strong>
+        <select value={shippingMethod} onChange={(event) => setShippingMethod(event.target.value)}>
+          <option value="Delivery">Delivery</option>
+          <option value="Store Pickup">Store Pickup</option>
+        </select>
+      </div>
+      <div className="checkout-card">
+        <strong>Payment</strong>
+        <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="DuitNow QR">DuitNow QR</option>
+        </select>
+      </div>
+      <div className="checkout-card">
+        <strong>Items</strong>
+        {items.map((item) => <p key={item.key}>{item.product.title} × {item.quantity} — RM {(item.price * item.quantity).toLocaleString('en-MY')}</p>)}
+      </div>
+      <div className="order-summary"><span>Total</span><strong>RM {total.toLocaleString('en-MY')}</strong></div>
+      {error && <div className="error-message">{error}</div>}
+    </StandalonePageLayout>
   )
 }
