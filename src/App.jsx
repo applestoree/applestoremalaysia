@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 
 const PRODUCTS_ENDPOINT = '/functions/v1/apple-produk'
+const USERS_ENDPOINT = '/functions/v1/apple-users'
+const ORDERS_ENDPOINT = '/functions/v1/apple-orders'
 
 function SplashPage() {
   return (
@@ -149,47 +151,68 @@ function ShopPage({ onProduct }) {
 function ProfilePage() {
   const [authView, setAuthView] = useState('login')
   const [authenticated, setAuthenticated] = useState(false)
+  const [user, setUser] = useState(null)
+  const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function submitAuth(event) {
+    event.preventDefault()
+    try {
+      setLoading(true)
+      setError('')
+      const endpoint = authView === 'login' ? `${USERS_ENDPOINT}/login` : `${USERS_ENDPOINT}/register`
+      const body = authView === 'login' ? { phone, password } : { name, phone, password }
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const result = await response.json()
+      if (!response.ok || !result.success) throw new Error(result.error || 'Authentication failed')
+      setUser(result.data)
+      setAuthenticated(true)
+      setPassword('')
+    } catch (err) {
+      setError(err.message || 'Authentication failed')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (authenticated) {
     return (
       <div className="account-view">
         <div className="account-header">
-          <div className="avatar">A</div>
+          <div className="avatar">{user?.name?.charAt(0) || 'A'}</div>
           <div>
-            <strong>Account</strong>
-            <div className="muted">Apple Store customer</div>
+            <strong>{user?.name || 'Account'}</strong>
+            <div className="muted">{user?.phone || 'Apple Store customer'}</div>
           </div>
         </div>
         <button className="account-item">Personal Information <span>›</span></button>
         <button className="account-item">My Orders <span>›</span></button>
         <button className="account-item">Wishlist <span>›</span></button>
         <button className="account-item">Settings <span>›</span></button>
-        <button className="logout-button" onClick={() => setAuthenticated(false)}>Logout</button>
-      </div>
-    )
-  }
-
-  if (authView === 'register') {
-    return (
-      <div className="auth-view">
-        <h1>Register</h1>
-        <input placeholder="Full name" />
-        <input placeholder="Phone" />
-        <input placeholder="Password" type="password" />
-        <button className="primary-button" onClick={() => setAuthenticated(true)}>Register</button>
-        <button className="link-button" onClick={() => setAuthView('login')}>Already have an account? Login</button>
+        <button className="logout-button" onClick={() => { setAuthenticated(false); setUser(null) }}>Logout</button>
       </div>
     )
   }
 
   return (
-    <div className="auth-view">
-      <h1>Login</h1>
-      <input placeholder="Phone" />
-      <input placeholder="Password" type="password" />
-      <button className="primary-button" onClick={() => setAuthenticated(true)}>Login</button>
-      <button className="link-button" onClick={() => setAuthView('register')}>Create account</button>
-    </div>
+    <form className="auth-view" onSubmit={submitAuth}>
+      <h1>{authView === 'register' ? 'Register' : 'Login'}</h1>
+      {authView === 'register' && <input placeholder="Full name" value={name} onChange={(event) => setName(event.target.value)} required />}
+      <input placeholder="Phone" value={phone} onChange={(event) => setPhone(event.target.value)} required />
+      <input placeholder="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+      {error && <div className="muted">{error}</div>}
+      <button className="primary-button" type="submit" disabled={loading}>{loading ? 'Loading...' : authView === 'register' ? 'Register' : 'Login'}</button>
+      <button className="link-button" type="button" onClick={() => { setAuthView(authView === 'register' ? 'login' : 'register'); setError('') }}>
+        {authView === 'register' ? 'Already have an account? Login' : 'Create account'}
+      </button>
+    </form>
   )
 }
 
@@ -239,7 +262,41 @@ function ProductDetailPage({ itemGroupId, onBack }) {
   )
 }
 
-function CheckoutPage({ onBack }) {
+function CheckoutPage({ onBack, user, onOrderCreated }) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function placeOrder() {
+    try {
+      setLoading(true)
+      setError('')
+      const response = await fetch(ORDERS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: user?.phone || null,
+          items: [],
+          address: null,
+          store: { name: 'Apple Store Malaysia' },
+          shipping: { method: 'Delivery' },
+          payment: { method: 'Bank Transfer' },
+          subtotal: 2999,
+          shipping_fee: 0,
+          discount: 0,
+          total: 2999,
+          status: 'pending',
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok || !result.success) throw new Error(result.error || 'Order creation failed')
+      onOrderCreated(result.data?.id)
+    } catch (err) {
+      setError(err.message || 'Order creation failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="full-page-content">
       <button className="back-button" onClick={onBack}>← Back</button>
@@ -249,36 +306,61 @@ function CheckoutPage({ onBack }) {
       <div className="checkout-card"><strong>Shipping</strong><p>Delivery / Store Pickup</p></div>
       <div className="checkout-card"><strong>Payment</strong><p>Bank Transfer / DuitNow QR</p></div>
       <div className="order-summary"><span>Total</span><strong>RM 2,999</strong></div>
-      <button className="primary-button">Place Order</button>
+      {error && <div className="muted">{error}</div>}
+      <button className="primary-button" onClick={placeOrder} disabled={loading}>{loading ? 'Creating Order...' : 'Place Order'}</button>
     </div>
   )
 }
 
-function TrackingPage({ onBack }) {
+function TrackingPage({ orderId, onBack }) {
+  const [order, setOrder] = useState(null)
+  const [loading, setLoading] = useState(Boolean(orderId))
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadOrder() {
+      try {
+        const response = await fetch(`${ORDERS_ENDPOINT}/${encodeURIComponent(orderId)}`)
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+        const result = await response.json()
+        if (!cancelled) setOrder(result.data)
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Failed to load order')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    if (orderId) loadOrder()
+    return () => { cancelled = true }
+  }, [orderId])
+
   return (
     <div className="full-page-content">
       <button className="back-button" onClick={onBack}>← Back</button>
       <h1>Tracking</h1>
-      <div className="tracking-card"><strong>Order Status</strong><div className="tracking-step active">Order confirmed</div><div className="tracking-step">Processing</div><div className="tracking-step">Delivered</div></div>
+      {loading && <div className="muted">Loading order...</div>}
+      {error && <div className="muted">{error}</div>}
+      {!loading && !error && <div className="tracking-card"><strong>Order Status</strong><div className="tracking-step active">{order?.status || 'pending'}</div></div>}
     </div>
   )
 }
 
-function CartDrawer({ onClose }) {
+function CartDrawer({ onClose, onCheckout }) {
   return (
     <div className="drawer-backdrop" onClick={onClose}>
       <aside className="cart-drawer" onClick={(event) => event.stopPropagation()}>
         <div className="drawer-header"><strong>Cart</strong><button onClick={onClose}>×</button></div>
         <div className="cart-item"><div className="cart-image">IMG</div><div><strong>iPhone</strong><div>RM 2,999</div></div></div>
         <div className="order-summary"><span>Subtotal</span><strong>RM 2,999</strong></div>
-        <button className="primary-button">Proceed Checkout</button>
+        <button className="primary-button" onClick={onCheckout}>Proceed Checkout</button>
       </aside>
     </div>
   )
 }
 
-function Overlay({ cartOpen, onCloseCart }) {
-  return cartOpen ? <CartDrawer onClose={onCloseCart} /> : null
+function Overlay({ cartOpen, onCloseCart, onCheckout }) {
+  return cartOpen ? <CartDrawer onClose={onCloseCart} onCheckout={onCheckout} /> : null
 }
 
 function BottomNav({ activePage, onNavigate }) {
@@ -311,21 +393,33 @@ export default function App() {
   const [activePage, setActivePage] = useState('home')
   const [fullPage, setFullPage] = useState(null)
   const [selectedItemGroupId, setSelectedItemGroupId] = useState(null)
+  const [selectedOrderId, setSelectedOrderId] = useState(null)
   const [cartOpen, setCartOpen] = useState(false)
+  const [user, setUser] = useState(null)
 
   const openProduct = (itemGroupId) => {
     setSelectedItemGroupId(itemGroupId)
     setFullPage('product')
   }
 
+  const openCheckout = () => {
+    setCartOpen(false)
+    setFullPage('checkout')
+  }
+
+  const openTracking = (orderId) => {
+    setSelectedOrderId(orderId)
+    setFullPage('tracking')
+  }
+
   if (fullPage === 'product') return <div className="app"><ProductDetailPage itemGroupId={selectedItemGroupId} onBack={() => setFullPage(null)} /></div>
-  if (fullPage === 'checkout') return <div className="app"><CheckoutPage onBack={() => setFullPage(null)} /></div>
-  if (fullPage === 'tracking') return <div className="app"><TrackingPage onBack={() => setFullPage(null)} /></div>
+  if (fullPage === 'checkout') return <div className="app"><CheckoutPage user={user} onBack={() => setFullPage(null)} onOrderCreated={openTracking} /></div>
+  if (fullPage === 'tracking') return <div className="app"><TrackingPage orderId={selectedOrderId} onBack={() => setFullPage(null)} /></div>
 
   return (
     <div className="app">
       <AppShell activePage={activePage} onNavigate={setActivePage} onCart={() => setCartOpen(true)} onProduct={openProduct} />
-      <Overlay cartOpen={cartOpen} onCloseCart={() => setCartOpen(false)} />
+      <Overlay cartOpen={cartOpen} onCloseCart={() => setCartOpen(false)} onCheckout={openCheckout} />
     </div>
   )
 }
