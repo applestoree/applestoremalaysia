@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { ORDERS_ENDPOINT } from '../constants'
 import StandalonePageLayout from './StandalonePageLayout'
 
-export default function TrackingPage({ orderId, onBack }) {
+export default function TrackingPage({ orderId, onBack, onCart, cartCount }) {
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(Boolean(orderId))
   const [error, setError] = useState('')
@@ -28,7 +28,12 @@ export default function TrackingPage({ orderId, onBack }) {
   const items = order?.items || []
 
   return (
-    <StandalonePageLayout onBack={onBack} header={<h1>Order Tracking</h1>}>
+    <StandalonePageLayout
+      onBack={onBack}
+      title="Order Tracking"
+      onCart={onCart}
+      cartCount={cartCount}
+    >
       {loading && <div className="muted">Loading order...</div>}
       {error && <div className="error-message">{error}</div>}
       {!loading && !error && (
