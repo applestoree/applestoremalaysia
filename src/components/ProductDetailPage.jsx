@@ -3,6 +3,7 @@ import { PRODUCTS_ENDPOINT } from '../constants'
 import { getProductPrice, getVariantValue } from '../utils'
 import Header from './Header'
 import BottomActionBar from './BottomActionBar'
+import VariantBottomSheet from './VariantBottomSheet'
 
 export default function ProductDetailPage({
   itemGroupId,
@@ -17,6 +18,8 @@ export default function ProductDetailPage({
   const [selectedSize, setSelectedSize] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [variantSheetOpen, setVariantSheetOpen] = useState(false)
+  const [variantAction, setVariantAction] = useState(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -56,24 +59,34 @@ export default function ProductDetailPage({
   const colors = product?.variant_color || []
   const sizes = product?.variant_size || []
 
-  const handleAddToCart = () => {
-    if (!product) return
-    onAddToCart?.({
-      product,
-      color: selectedColor,
-      size: selectedSize,
-      price,
-    })
+  const openVariantSheet = (action) => {
+    setVariantAction(action)
+    setVariantSheetOpen(true)
   }
 
-  const handleBuyNow = () => {
+  const closeVariantSheet = () => {
+    setVariantSheetOpen(false)
+    setVariantAction(null)
+  }
+
+  const confirmVariant = () => {
     if (!product) return
-    onBuyNow?.({
+
+    const item = {
       product,
       color: selectedColor,
       size: selectedSize,
       price,
-    })
+    }
+
+    closeVariantSheet()
+
+    if (variantAction === 'buy') {
+      onBuyNow?.(item)
+      return
+    }
+
+    onAddToCart?.(item)
   }
 
   let content = null
@@ -125,44 +138,13 @@ export default function ProductDetailPage({
         {price > 0 && (
           <div className="price">RM {price.toLocaleString('en-MY')}</div>
         )}
-        {colors.length > 0 && (
-          <div className="detail-section">
-            <strong>Color</strong>
-            <div className="option-row">
-              {colors.map((color, index) => {
-                const value = getVariantValue(color, 'color')
-                return (
-                  <button
-                    key={`${value}-${index}`}
-                    className={selectedColor === color ? 'selected' : ''}
-                    onClick={() => setSelectedColor(color)}
-                  >
-                    {value}
-                  </button>
-                )
-              })}
-            </div>
+        <div className="detail-section">
+          <strong>Selected Variant</strong>
+          <div className="muted">
+            {selectedColor ? getVariantValue(selectedColor, 'color') : '—'}
+            {selectedSize ? ` · ${getVariantValue(selectedSize, 'size')}` : ''}
           </div>
-        )}
-        {sizes.length > 0 && (
-          <div className="detail-section">
-            <strong>Storage</strong>
-            <div className="option-row">
-              {sizes.map((size, index) => {
-                const value = getVariantValue(size, 'size')
-                return (
-                  <button
-                    key={`${value}-${index}`}
-                    className={selectedSize === size ? 'selected' : ''}
-                    onClick={() => setSelectedSize(size)}
-                  >
-                    {value}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
+        </div>
         <div className="detail-section">
           <strong>Description</strong>
           <p>{product.description || 'Product description...'}</p>
@@ -180,11 +162,25 @@ export default function ProductDetailPage({
         </main>
         {product && !loading && !error && (
           <BottomActionBar
-            onAddToCart={handleAddToCart}
-            onBuyNow={handleBuyNow}
+            onAddToCart={() => openVariantSheet('cart')}
+            onBuyNow={() => openVariantSheet('buy')}
           />
         )}
       </div>
+
+      {variantSheetOpen && (
+        <VariantBottomSheet
+          colors={colors}
+          sizes={sizes}
+          selectedColor={selectedColor}
+          selectedSize={selectedSize}
+          onColorChange={setSelectedColor}
+          onSizeChange={setSelectedSize}
+          onClose={closeVariantSheet}
+          onConfirm={confirmVariant}
+          actionLabel={variantAction === 'buy' ? 'Buy Now' : 'Add to Cart'}
+        />
+      )}
     </div>
   )
 }
