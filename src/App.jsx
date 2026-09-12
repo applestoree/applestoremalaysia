@@ -104,6 +104,8 @@ function App() {
     return (
       <CheckoutPage
         onBack={() => setActivePage('home')}
+        onCart={() => setCartOpen(true)}
+        cartCount={cartCount}
         user={user}
         items={cartItems}
         onOrderCreated={(id) => {
@@ -120,6 +122,8 @@ function App() {
       <TrackingPage
         orderId={orderId}
         onBack={() => setActivePage('home')}
+        onCart={() => setCartOpen(true)}
+        cartCount={cartCount}
       />
     )
   }
