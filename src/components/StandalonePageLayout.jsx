@@ -1,24 +1,28 @@
 import React from 'react'
+import Header from './Header'
+import BottomActionBar from './BottomActionBar'
 
 export default function StandalonePageLayout({
   onBack,
-  header = null,
+  title,
+  onCart,
+  cartCount,
   children,
   bottomAction = null,
 }) {
   return (
     <div className="standalone-page">
-      <header className="standalone-header">
-        <button className="back-button" onClick={onBack}>
-          ← Back
-        </button>
-        {header}
-      </header>
+      <Header
+        onBack={onBack}
+        title={title}
+        onCart={onCart}
+        cartCount={cartCount}
+      />
 
       <main className="standalone-main">{children}</main>
 
       {bottomAction && (
-        <div className="standalone-bottom-action">{bottomAction}</div>
+        <BottomActionBar>{bottomAction}</BottomActionBar>
       )}
     </div>
   )
