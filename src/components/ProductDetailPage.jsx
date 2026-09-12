@@ -46,9 +46,7 @@ export default function ProductDetailPage({
           setError(err.message || 'Failed to load product')
         }
       } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false)
-        }
+        if (!controller.signal.aborted) setLoading(false)
       }
     }
     if (itemGroupId) load()
@@ -89,41 +87,17 @@ export default function ProductDetailPage({
     onAddToCart?.(item)
   }
 
-  let content = null
+  let mainContent = null
 
   if (loading) {
-    content = (
-      <>
-        <button className="back-button" onClick={onBack}>
-          ← Back
-        </button>
-        <div className="muted">Loading product...</div>
-      </>
-    )
+    mainContent = <div className="muted">Loading product...</div>
   } else if (error) {
-    content = (
-      <>
-        <button className="back-button" onClick={onBack}>
-          ← Back
-        </button>
-        <div className="error-message">{error}</div>
-      </>
-    )
+    mainContent = <div className="error-message">{error}</div>
   } else if (!product) {
-    content = (
-      <>
-        <button className="back-button" onClick={onBack}>
-          ← Back
-        </button>
-        <div className="muted">Product not found.</div>
-      </>
-    )
+    mainContent = <div className="muted">Product not found.</div>
   } else {
-    content = (
+    mainContent = (
       <>
-        <button className="back-button" onClick={onBack}>
-          ← Back
-        </button>
         <div className="detail-image">
           {product?.variant_color?.[0]?.image_link ? (
             <img
@@ -134,10 +108,13 @@ export default function ProductDetailPage({
             'Product Image'
           )}
         </div>
+
         <h1>{product.title || product.item_group_id}</h1>
+
         {price > 0 && (
           <div className="price">RM {price.toLocaleString('en-MY')}</div>
         )}
+
         <div className="detail-section">
           <strong>Selected Variant</strong>
           <div className="muted">
@@ -145,6 +122,7 @@ export default function ProductDetailPage({
             {selectedSize ? ` · ${getVariantValue(selectedSize, 'size')}` : ''}
           </div>
         </div>
+
         <div className="detail-section">
           <strong>Description</strong>
           <p>{product.description || 'Product description...'}</p>
@@ -154,17 +132,26 @@ export default function ProductDetailPage({
   }
 
   return (
-    <div className="page app-shell h-full">
-      <div className="h-full flex flex-col">
-        <Header onCart={onCart} cartCount={cartCount} />
-        <main className="main-content flex-1 overflow-y-auto">
-          {content}
+    <div className="page standalone-page">
+      <div className="standalone-page-layout">
+        <header className="standalone-header">
+          <button className="back-button" onClick={onBack}>
+            ← Back
+          </button>
+          <Header onCart={onCart} cartCount={cartCount} />
+        </header>
+
+        <main className="standalone-main">
+          {mainContent}
         </main>
+
         {product && !loading && !error && (
-          <BottomActionBar
-            onAddToCart={() => openVariantSheet('cart')}
-            onBuyNow={() => openVariantSheet('buy')}
-          />
+          <div className="standalone-bottom-action">
+            <BottomActionBar
+              onAddToCart={() => openVariantSheet('cart')}
+              onBuyNow={() => openVariantSheet('buy')}
+            />
+          </div>
         )}
       </div>
 
