@@ -10,18 +10,37 @@ export default function CheckoutPage({
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [address, setAddress] = useState(() => ({
+    name: user?.address?.name || user?.name || '',
+    phone: user?.address?.phone || user?.phone || '',
+    address_line_1: user?.address?.address_line_1 || '',
+    address_line_2: user?.address?.address_line_2 || '',
+    city: user?.address?.city || '',
+    state: user?.address?.state || '',
+    postcode: user?.address?.postcode || '',
+    country: user?.address?.country || 'Malaysia',
+  }))
+  const [shippingMethod, setShippingMethod] = useState('Delivery')
+  const [paymentMethod, setPaymentMethod] = useState('Bank Transfer')
+  const [voucher, setVoucher] = useState(null)
+
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   )
+  const shippingFee = 0
+  const discount = Number(voucher?.discount || 0)
+  const total = Math.max(0, subtotal + shippingFee - discount)
 
   async function placeOrder() {
     if (!items.length) return setError('Your cart is empty.')
+
     try {
       setLoading(true)
       setError('')
+
       const payload = {
-        phone: user?.phone || null,
+        phone: address.phone || user?.phone || null,
         items: items.map((item) => ({
           item_group_id: item.product.item_group_id,
           title: item.product.title,
@@ -30,25 +49,29 @@ export default function CheckoutPage({
           color: item.color ? getVariantValue(item.color, 'color') : null,
           size: item.size ? getVariantValue(item.size, 'size') : null,
         })),
-        address: null,
+        address,
         store: { name: 'Apple Store Malaysia' },
-        shipping: { method: 'Delivery' },
-        payment: { method: 'Bank Transfer' },
+        shipping: { method: shippingMethod },
+        voucher,
+        payment: { method: paymentMethod },
         subtotal,
-        shipping_fee: 0,
-        discount: 0,
-        total: subtotal,
+        shipping_fee: shippingFee,
+        discount,
+        total,
         status: 'pending',
       }
+
       const response = await fetch(ORDERS_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
+
       const result = await response.json().catch(() => null)
       if (!response.ok || !result?.success) {
         throw new Error(result?.error || 'Order creation failed')
       }
+
       onOrderCreated(result.data?.id)
     } catch (err) {
       setError(err.message || 'Order creation failed')
@@ -63,24 +86,42 @@ export default function CheckoutPage({
         ← Back
       </button>
       <h1>Checkout</h1>
+
       <div className="checkout-card">
         <strong>Delivery Address</strong>
         <p>
-          {user?.name || 'Name'} · Address · {user?.phone || 'Phone'}
+          {address.name || 'Name'} · {address.address_line_1 || 'Address'} ·{' '}
+          {address.phone || 'Phone'}
         </p>
       </div>
+
       <div className="checkout-card">
         <strong>Store</strong>
         <p>Apple Store Malaysia</p>
       </div>
+
       <div className="checkout-card">
         <strong>Shipping</strong>
-        <p>Delivery / Store Pickup</p>
+        <select
+          value={shippingMethod}
+          onChange={(event) => setShippingMethod(event.target.value)}
+        >
+          <option value="Delivery">Delivery</option>
+          <option value="Store Pickup">Store Pickup</option>
+        </select>
       </div>
+
       <div className="checkout-card">
         <strong>Payment</strong>
-        <p>Bank Transfer / DuitNow QR</p>
+        <select
+          value={paymentMethod}
+          onChange={(event) => setPaymentMethod(event.target.value)}
+        >
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="DuitNow QR">DuitNow QR</option>
+        </select>
       </div>
+
       <div className="checkout-card">
         <strong>Items</strong>
         {items.map((item) => (
@@ -90,11 +131,14 @@ export default function CheckoutPage({
           </p>
         ))}
       </div>
+
       <div className="order-summary">
         <span>Total</span>
-        <strong>RM {subtotal.toLocaleString('en-MY')}</strong>
+        <strong>RM {total.toLocaleString('en-MY')}</strong>
       </div>
+
       {error && <div className="error-message">{error}</div>}
+
       <button
         className="primary-button"
         onClick={placeOrder}
