@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
 const PRODUCTS_ENDPOINT = '/functions/v1/apple-produk'
 const USERS_ENDPOINT = '/functions/v1/apple-users'
@@ -80,21 +80,28 @@ function HomePage({ onProduct }) {
     return () => { cancelled = true }
   }, [])
 
+  const flashSaleProducts = useMemo(
+    () => products.filter((product) => product.custom_label_0 === 'flashsale'),
+    [products]
+  )
+
+  const recommendedProducts = useMemo(() => {
+    return [...products].sort(() => Math.random() - 0.5).slice(0, 8)
+  }, [products])
+
   return (
     <section>
-      <div className="search">Search products</div>
-      <div className="hero">Apple Store Malaysia</div>
-      <div className="section-title">Categories</div>
-      <div className="categories">
-        <button>iPhone</button>
-        <button>Mac</button>
-        <button>iPad</button>
-        <button>Watch</button>
-      </div>
-      <div className="section-title">Recommended Products</div>
+      <div className="hero">Hero/Banner</div>
+
+      <div className="section-title">FlashSale</div>
       {loading && <div className="muted">Loading products...</div>}
       {error && <div className="muted">{error}</div>}
-      {!loading && !error && <ProductList products={products} onProduct={onProduct} />}
+      {!loading && !error && <ProductList products={flashSaleProducts} onProduct={onProduct} />}
+
+      <div className="section-title">Recommeded</div>
+      {loading && <div className="muted">Loading products...</div>}
+      {error && <div className="muted">{error}</div>}
+      {!loading && !error && <ProductList products={recommendedProducts} onProduct={onProduct} />}
     </section>
   )
 }
@@ -127,6 +134,10 @@ function ShopPage({ onProduct }) {
     return () => { cancelled = true }
   }, [])
 
+  const productTypes = useMemo(() => {
+    return [...new Set(products.map((product) => product.product_type).filter(Boolean))]
+  }, [products])
+
   const filteredProducts = filter
     ? products.filter((product) => product.product_type === filter)
     : products
@@ -135,12 +146,13 @@ function ShopPage({ onProduct }) {
     <section>
       <div className="search">Search products</div>
       <div className="filters">
-        <button onClick={() => setFilter('iPhone')}>iPhone</button>
-        <button onClick={() => setFilter('Mac')}>Mac</button>
-        <button onClick={() => setFilter('iPad')}>iPad</button>
-        <button onClick={() => setFilter('Watch')}>Watch</button>
+        <button className={!filter ? 'active' : ''} onClick={() => setFilter('')}>All</button>
+        {productTypes.map((type) => (
+          <button key={type} className={filter === type ? 'active' : ''} onClick={() => setFilter(type)}>
+            {type}
+          </button>
+        ))}
       </div>
-      {filter && <button className="link-button" onClick={() => setFilter('')}>Clear filter</button>}
       {loading && <div className="muted">Loading products...</div>}
       {error && <div className="muted">{error}</div>}
       {!loading && !error && <ProductList products={filteredProducts} onProduct={onProduct} />}
@@ -373,53 +385,62 @@ function BottomNav({ activePage, onNavigate }) {
   )
 }
 
-function AppShell({ activePage, onNavigate, onCart, onProduct }) {
-  const content = {
-    home: <HomePage onProduct={onProduct} />,
-    shop: <ShopPage onProduct={onProduct} />,
-    profile: <ProfilePage />,
-  }[activePage]
-
+function AppShell({ activePage, onNavigate, onCart, onProduct, children }) {
   return (
     <div className="app-shell">
       <Header onCart={onCart} />
-      <main className="content">{content}</main>
+      <main className="main-content">{children}</main>
       <BottomNav activePage={activePage} onNavigate={onNavigate} />
     </div>
   )
 }
 
-export default function App() {
+function App() {
+  const [showSplash, setShowSplash] = useState(true)
   const [activePage, setActivePage] = useState('home')
-  const [fullPage, setFullPage] = useState(null)
-  const [selectedItemGroupId, setSelectedItemGroupId] = useState(null)
-  const [selectedOrderId, setSelectedOrderId] = useState(null)
+  const [selectedProduct, setSelectedProduct] = useState(null)
   const [cartOpen, setCartOpen] = useState(false)
   const [user, setUser] = useState(null)
+  const [orderId, setOrderId] = useState(null)
 
-  const openProduct = (itemGroupId) => {
-    setSelectedItemGroupId(itemGroupId)
-    setFullPage('product')
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 1200)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (showSplash) return <SplashPage />
+
+  if (selectedProduct) {
+    return <ProductDetailPage itemGroupId={selectedProduct} onBack={() => setSelectedProduct(null)} />
   }
 
-  const openCheckout = () => {
-    setCartOpen(false)
-    setFullPage('checkout')
+  if (activePage === 'checkout') {
+    return <CheckoutPage user={user} onBack={() => setActivePage('home')} onOrderCreated={(id) => { setOrderId(id); setActivePage('tracking') }} />
   }
 
-  const openTracking = (orderId) => {
-    setSelectedOrderId(orderId)
-    setFullPage('tracking')
+  if (activePage === 'tracking') {
+    return <TrackingPage orderId={orderId} onBack={() => setActivePage('home')} />
   }
-
-  if (fullPage === 'product') return <div className="app"><ProductDetailPage itemGroupId={selectedItemGroupId} onBack={() => setFullPage(null)} /></div>
-  if (fullPage === 'checkout') return <div className="app"><CheckoutPage user={user} onBack={() => setFullPage(null)} onOrderCreated={openTracking} /></div>
-  if (fullPage === 'tracking') return <div className="app"><TrackingPage orderId={selectedOrderId} onBack={() => setFullPage(null)} /></div>
 
   return (
-    <div className="app">
-      <AppShell activePage={activePage} onNavigate={setActivePage} onCart={() => setCartOpen(true)} onProduct={openProduct} />
-      <Overlay cartOpen={cartOpen} onCloseCart={() => setCartOpen(false)} onCheckout={openCheckout} />
-    </div>
+    <>
+      <AppShell
+        activePage={activePage}
+        onNavigate={setActivePage}
+        onCart={() => setCartOpen(true)}
+        onProduct={setSelectedProduct}
+      >
+        {activePage === 'home' && <HomePage onProduct={setSelectedProduct} />}
+        {activePage === 'shop' && <ShopPage onProduct={setSelectedProduct} />}
+        {activePage === 'profile' && <ProfilePage />}
+      </AppShell>
+      <Overlay
+        cartOpen={cartOpen}
+        onCloseCart={() => setCartOpen(false)}
+        onCheckout={() => { setCartOpen(false); setActivePage('checkout') }}
+      />
+    </>
   )
 }
+
+export default App
