@@ -1,0 +1,6 @@
+{
+  "name": "Apple Store Malaysia",
+  "description": "Apple Store Malaysia shopping app featuring iPhone products, flash sales, shopping cart, and order tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
