@@ -5,200 +5,28 @@ const PRODUCTS_ENDPOINT = `${SUPABASE_URL}/functions/v1/apple-produk`
 const USERS_ENDPOINT = `${SUPABASE_URL}/functions/v1/apple-users`
 const ORDERS_ENDPOINT = `${SUPABASE_URL}/functions/v1/apple-orders`
 
-function SplashPage() {
-  return <div className="splash-page"><div className="apple-mark"></div><div className="splash-title">Apple Store Malaysia</div></div>
-}
-
-function Header({ onCart, cartCount }) {
-  return <header className="header"><div className="logo">Apple Store Malaysia</div><div className="header-actions"><button className="icon-button" aria-label="Notifications">♡</button><button className="icon-button" aria-label="Cart" onClick={onCart}>Cart{cartCount ? ` (${cartCount})` : ''}</button></div></header>
-}
-
-function getProducts(response) {
-  if (Array.isArray(response)) return response
-  if (Array.isArray(response?.data)) return response.data
-  if (Array.isArray(response?.products)) return response.products
-  return []
-}
-
-function getVariantValue(value, key) {
-  if (value && typeof value === 'object') return value[key] ?? value.name ?? value.value ?? value.label ?? ''
-  return value ?? ''
-}
-
-function getPrice(value) {
-  if (value && typeof value === 'object') return Number(value.sale_price ?? value.price ?? 0)
-  return Number(value || 0)
-}
-
-function getProductPrice(product, selectedSize = null) {
-  const variant = selectedSize || product?.variant_size?.[0]
-  return getPrice(variant)
-}
+function SplashPage() { return <div className="splash-page"><div className="apple-mark"></div><div className="splash-title">Apple Store Malaysia</div></div> }
+function Header({ onCart, cartCount }) { return <header className="header"><div className="logo">Apple Store Malaysia</div><div className="header-actions"><button className="icon-button" aria-label="Notifications">♡</button><button className="icon-button" aria-label="Cart" onClick={onCart}>Cart{cartCount ? ` (${cartCount})` : ''}</button></div></header> }
+function getProducts(response) { if (Array.isArray(response)) return response; if (Array.isArray(response?.data)) return response.data; if (Array.isArray(response?.products)) return response.products; return [] }
+function getVariantValue(value, key) { if (value && typeof value === 'object') return value[key] ?? value.name ?? value.value ?? value.label ?? ''; return value ?? '' }
+function getPrice(value) { if (value && typeof value === 'object') return Number(value.sale_price ?? value.price ?? 0); return Number(value || 0) }
+function getProductPrice(product, selectedSize = null) { return getPrice(selectedSize || product?.variant_size?.[0]) }
 
 function ProductCard({ product, onProduct }) {
   const price = getProductPrice(product)
-  return <button className="product product-button" onClick={() => onProduct(product.item_group_id)}><div className="product-title">{product.title || product.item_group_id || 'Product'}</div><div className="product-price">{price > 0 ? `RM ${price.toLocaleString('en-MY')}` : 'View product'}</div></button>
+  const image = product?.variant_color?.[0]?.image_link
+  return <button className="product product-button" onClick={() => onProduct(product.item_group_id)}>{image && <img className="product-image" src={image} alt={product.title || product.item_group_id || 'Product'} />}{!image && <div className="product-image product-image-placeholder">Product Image</div>}<div className="product-title">{product.title || product.item_group_id || 'Product'}</div><div className="product-price">{price > 0 ? `RM ${price.toLocaleString('en-MY')}` : 'View product'}</div></button>
 }
-
-function ProductList({ products, onProduct }) {
-  if (!products.length) return <div className="muted">No products available.</div>
-  return <div className="products">{products.map((product) => <ProductCard key={product.item_group_id} product={product} onProduct={onProduct} />)}</div>
-}
-
-function useProducts() {
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    const controller = new AbortController()
-    async function load() {
-      try {
-        setLoading(true); setError('')
-        const response = await fetch(PRODUCTS_ENDPOINT, { signal: controller.signal })
-        const result = await response.json().catch(() => null)
-        if (!response.ok || result?.success === false) throw new Error(result?.error || `Request failed: ${response.status}`)
-        setProducts(getProducts(result))
-      } catch (err) {
-        if (err.name !== 'AbortError') setError(err.message || 'Failed to load products')
-      } finally { if (!controller.signal.aborted) setLoading(false) }
-    }
-    load()
-    return () => controller.abort()
-  }, [])
-  return { products, loading, error }
-}
-
-function HomePage({ onProduct }) {
-  const { products, loading, error } = useProducts()
-  const flashSaleProducts = useMemo(() => products.filter((product) => String(product.custom_label_0 || '').toLowerCase() === 'flashsale'), [products])
-  const recommendedProducts = useMemo(() => products.slice(0, 8), [products])
-  return <section><div className="hero">Apple Store Malaysia</div>{loading && <div className="muted">Loading products...</div>}{error && <div className="error-message">{error}</div>} {!loading && !error && <><div className="section-title">FlashSale</div><ProductList products={flashSaleProducts} onProduct={onProduct}/><div className="section-title">Recommended</div><ProductList products={recommendedProducts} onProduct={onProduct}/></>}</section>
-}
-
-function ShopPage({ onProduct }) {
-  const { products, loading, error } = useProducts()
-  const [filter, setFilter] = useState('')
-  const [query, setQuery] = useState('')
-  const productTypes = useMemo(() => [...new Set(products.map((product) => product.product_type).filter(Boolean))], [products])
-  const filteredProducts = useMemo(() => products.filter((product) => (!filter || product.product_type === filter) && (!query || `${product.title} ${product.item_group_id}`.toLowerCase().includes(query.toLowerCase()))), [products, filter, query])
-  return <section><input className="search-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products" aria-label="Search products"/><div className="filters"><button className={!filter ? 'active' : ''} onClick={() => setFilter('')}>All</button>{productTypes.map((type) => <button key={type} className={filter === type ? 'active' : ''} onClick={() => setFilter(type)}>{type}</button>)}</div>{loading && <div className="muted">Loading products...</div>}{error && <div className="error-message">{error}</div>}{!loading && !error && <ProductList products={filteredProducts} onProduct={onProduct}/>}</section>
-}
-
-function ProfilePage({ onUserChange }) {
-  const [authView, setAuthView] = useState('login')
-  const [authenticated, setAuthenticated] = useState(false)
-  const [user, setUser] = useState(null)
-  const [phone, setPhone] = useState('')
-  const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  async function submitAuth(event) {
-    event.preventDefault()
-    try {
-      setLoading(true); setError('')
-      const endpoint = authView === 'login' ? `${USERS_ENDPOINT}/login` : `${USERS_ENDPOINT}/register`
-      const body = authView === 'login' ? { phone, password } : { name, phone, password }
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      const result = await response.json().catch(() => null)
-      if (!response.ok || !result?.success) throw new Error(result?.error || 'Authentication failed')
-      setUser(result.data); setAuthenticated(true); setPassword(''); onUserChange?.(result.data)
-    } catch (err) { setError(err.message || 'Authentication failed') } finally { setLoading(false) }
-  }
-  if (authenticated) return <div className="account-view"><div className="account-header"><div className="avatar">{user?.name?.charAt(0) || 'A'}</div><div><strong>{user?.name || 'Account'}</strong><div className="muted">{user?.phone || 'Apple Store customer'}</div></div></div><button className="account-item">Personal Information <span>›</span></button><button className="account-item">My Orders <span>›</span></button><button className="account-item">Wishlist <span>›</span></button><button className="account-item">Settings <span>›</span></button><button className="logout-button" onClick={() => { setAuthenticated(false); setUser(null); onUserChange?.(null) }}>Logout</button></div>
-  return <form className="auth-view" onSubmit={submitAuth}><h1>{authView === 'register' ? 'Register' : 'Login'}</h1>{authView === 'register' && <input placeholder="Full name" value={name} onChange={(event) => setName(event.target.value)} required/>}<input placeholder="Phone" value={phone} onChange={(event) => setPhone(event.target.value)} required/><input placeholder="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required/>{error && <div className="error-message">{error}</div>}<button className="primary-button" type="submit" disabled={loading}>{loading ? 'Loading...' : authView === 'register' ? 'Register' : 'Login'}</button><button className="link-button" type="button" onClick={() => { setAuthView(authView === 'register' ? 'login' : 'register'); setError('') }}>{authView === 'register' ? 'Already have an account? Login' : 'Create account'}</button></form>
-}
-
-function ProductDetailPage({ itemGroupId, onBack, onAddToCart, onBuyNow }) {
-  const [product, setProduct] = useState(null)
-  const [selectedColor, setSelectedColor] = useState(null)
-  const [selectedSize, setSelectedSize] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    const controller = new AbortController()
-    async function load() {
-      try {
-        setLoading(true); setError('')
-        const response = await fetch(`${PRODUCTS_ENDPOINT}/${encodeURIComponent(itemGroupId)}`, { signal: controller.signal })
-        const result = await response.json().catch(() => null)
-        if (!response.ok || result?.success === false) throw new Error(result?.error || `Request failed: ${response.status}`)
-        const detail = result?.data || result
-        setProduct(detail)
-        const colors = detail?.variant_color || []
-        const sizes = detail?.variant_size || []
-        if (colors.length) setSelectedColor(colors[0])
-        if (sizes.length) setSelectedSize(sizes[0])
-      } catch (err) { if (err.name !== 'AbortError') setError(err.message || 'Failed to load product') } finally { if (!controller.signal.aborted) setLoading(false) }
-    }
-    if (itemGroupId) load()
-    return () => controller.abort()
-  }, [itemGroupId])
-  if (loading) return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><div className="muted">Loading product...</div></div>
-  if (error) return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><div className="error-message">{error}</div></div>
-  if (!product) return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><div className="muted">Product not found.</div></div>
-  const price = getProductPrice(product, selectedSize)
-  const colors = product.variant_color || []
-  const sizes = product.variant_size || []
-  const add = () => onAddToCart({ product, color: selectedColor, size: selectedSize, price })
-  return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><div className="detail-image">Product Image</div><h1>{product.title || product.item_group_id}</h1>{price > 0 && <div className="price">RM {price.toLocaleString('en-MY')}</div>}{colors.length > 0 && <div className="detail-section"><strong>Color</strong><div className="option-row">{colors.map((color, index) => { const value = getVariantValue(color, 'color'); return <button key={`${value}-${index}`} className={selectedColor === color ? 'selected' : ''} onClick={() => setSelectedColor(color)}>{value}</button> })}</div></div>}{sizes.length > 0 && <div className="detail-section"><strong>Storage</strong><div className="option-row">{sizes.map((size, index) => { const value = getVariantValue(size, 'size'); return <button key={`${value}-${index}`} className={selectedSize === size ? 'selected' : ''} onClick={() => setSelectedSize(size)}>{value}</button> })}</div></div>}<div className="detail-section"><strong>Description</strong><p>{product.description || 'Product description...'}</p></div><div className="detail-actions"><button onClick={add}>Add to Cart</button><button className="primary-button" onClick={() => onBuyNow({ product, color: selectedColor, size: selectedSize, price })}>Buy Now</button></div></div>
-}
-
-function CartDrawer({ items, onClose, onCheckout, onRemove }) {
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  return <div className="drawer-backdrop" onClick={onClose}><aside className="cart-drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-header"><strong>Cart</strong><button onClick={onClose}>×</button></div>{!items.length ? <div className="muted">Your cart is empty.</div> : <>{items.map((item) => <div className="cart-item" key={item.key}><div className="cart-image">IMG</div><div className="cart-item-info"><strong>{item.product.title}</strong><div>{item.size ? getVariantValue(item.size, 'size') : ''}{item.color ? ` · ${getVariantValue(item.color, 'color')}` : ''}</div><div>RM {item.price.toLocaleString('en-MY')} × {item.quantity}</div><button className="remove-button" onClick={() => onRemove(item.key)}>Remove</button></div></div>)}<div className="order-summary"><span>Subtotal</span><strong>RM {subtotal.toLocaleString('en-MY')}</strong></div><button className="primary-button" onClick={onCheckout}>Proceed Checkout</button></>}</aside></div>
-}
-
-function CheckoutPage({ onBack, user, items, onOrderCreated }) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  async function placeOrder() {
-    if (!items.length) return setError('Your cart is empty.')
-    try {
-      setLoading(true); setError('')
-      const payload = { phone: user?.phone || null, items: items.map((item) => ({ item_group_id: item.product.item_group_id, title: item.product.title, quantity: item.quantity, price: item.price, color: item.color ? getVariantValue(item.color, 'color') : null, size: item.size ? getVariantValue(item.size, 'size') : null })), address: null, store: { name: 'Apple Store Malaysia' }, shipping: { method: 'Delivery' }, payment: { method: 'Bank Transfer' }, subtotal, shipping_fee: 0, discount: 0, total: subtotal, status: 'pending' }
-      const response = await fetch(ORDERS_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      const result = await response.json().catch(() => null)
-      if (!response.ok || !result?.success) throw new Error(result?.error || 'Order creation failed')
-      onOrderCreated(result.data?.id)
-    } catch (err) { setError(err.message || 'Order creation failed') } finally { setLoading(false) }
-  }
-  return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><h1>Checkout</h1><div className="checkout-card"><strong>Delivery Address</strong><p>{user?.name || 'Name'} · Address · {user?.phone || 'Phone'}</p></div><div className="checkout-card"><strong>Store</strong><p>Apple Store Malaysia</p></div><div className="checkout-card"><strong>Shipping</strong><p>Delivery / Store Pickup</p></div><div className="checkout-card"><strong>Payment</strong><p>Bank Transfer / DuitNow QR</p></div><div className="checkout-card"><strong>Items</strong>{items.map((item) => <p key={item.key}>{item.product.title} × {item.quantity} — RM {(item.price * item.quantity).toLocaleString('en-MY')}</p>)}</div><div className="order-summary"><span>Total</span><strong>RM {subtotal.toLocaleString('en-MY')}</strong></div>{error && <div className="error-message">{error}</div>}<button className="primary-button" onClick={placeOrder} disabled={loading || !items.length}>{loading ? 'Creating Order...' : 'Place Order'}</button></div>
-}
-
-function TrackingPage({ orderId, onBack }) {
-  const [order, setOrder] = useState(null); const [loading, setLoading] = useState(Boolean(orderId)); const [error, setError] = useState('')
-  useEffect(() => { const controller = new AbortController(); async function load() { try { const response = await fetch(`${ORDERS_ENDPOINT}/${encodeURIComponent(orderId)}`, { signal: controller.signal }); const result = await response.json().catch(() => null); if (!response.ok || result?.success === false) throw new Error(result?.error || `Request failed: ${response.status}`); setOrder(result.data) } catch (err) { if (err.name !== 'AbortError') setError(err.message || 'Failed to load order') } finally { if (!controller.signal.aborted) setLoading(false) } } if (orderId) load(); return () => controller.abort() }, [orderId])
-  return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><h1>Tracking</h1>{loading && <div className="muted">Loading order...</div>}{error && <div className="error-message">{error}</div>}{!loading && !error && <div className="tracking-card"><strong>Order Status</strong><div className="tracking-step active">{order?.status || 'pending'}</div></div>}</div>
-}
-
-function BottomNav({ activePage, onNavigate }) {
-  return <nav className="bottom-nav"><button className={activePage === 'home' ? 'active' : ''} onClick={() => onNavigate('home')}>HomeNav</button><button className={activePage === 'shop' ? 'active' : ''} onClick={() => onNavigate('shop')}>ShopNav</button><button className={activePage === 'profile' ? 'active' : ''} onClick={() => onNavigate('profile')}>ProfileNav</button></nav>
-}
-
-function AppShell({ activePage, onNavigate, onCart, cartCount, children }) {
-  return <div className="app-shell"><Header onCart={onCart} cartCount={cartCount}/><main className="main-content">{children}</main><BottomNav activePage={activePage} onNavigate={onNavigate}/></div>
-}
-
-function App() {
-  const [showSplash, setShowSplash] = useState(true)
-  const [activePage, setActivePage] = useState('home')
-  const [selectedProduct, setSelectedProduct] = useState(null)
-  const [cartOpen, setCartOpen] = useState(false)
-  const [cartItems, setCartItems] = useState([])
-  const [user, setUser] = useState(null)
-  const [orderId, setOrderId] = useState(null)
-  useEffect(() => { const timer = setTimeout(() => setShowSplash(false), 1200); return () => clearTimeout(timer) }, [])
-  function addToCart(item) { setCartItems((current) => { const key = `${item.product.item_group_id}|${getVariantValue(item.color, 'color')}|${getVariantValue(item.size, 'size')}`; const existing = current.find((entry) => entry.key === key); if (existing) return current.map((entry) => entry.key === key ? { ...entry, quantity: entry.quantity + 1 } : entry); return [...current, { ...item, key, quantity: 1 }] }) ; setSelectedProduct(null); setCartOpen(true) }
-  function buyNow(item) { setCartItems((current) => { const key = `${item.product.item_group_id}|${getVariantValue(item.color, 'color')}|${getVariantValue(item.size, 'size')}`; const existing = current.find((entry) => entry.key === key); if (existing) return current.map((entry) => entry.key === key ? { ...entry, quantity: entry.quantity + 1 } : entry); return [...current, { ...item, key, quantity: 1 }] }); setSelectedProduct(null); setActivePage('checkout') }
-  const removeFromCart = (key) => setCartItems((current) => current.filter((item) => item.key !== key))
-  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
-  if (showSplash) return <SplashPage/>
-  if (selectedProduct) return <ProductDetailPage itemGroupId={selectedProduct} onBack={() => setSelectedProduct(null)} onAddToCart={addToCart} onBuyNow={buyNow}/>
-  if (activePage === 'checkout') return <CheckoutPage user={user} items={cartItems} onBack={() => setActivePage('home')} onOrderCreated={(id) => { setOrderId(id); setCartItems([]); setActivePage('tracking') }}/>
-  if (activePage === 'tracking') return <TrackingPage orderId={orderId} onBack={() => setActivePage('home')}/>
-  return <><AppShell activePage={activePage} onNavigate={setActivePage} onCart={() => setCartOpen(true)} cartCount={cartCount}>{activePage === 'home' && <HomePage onProduct={setSelectedProduct}/>} {activePage === 'shop' && <ShopPage onProduct={setSelectedProduct}/>} {activePage === 'profile' && <ProfilePage onUserChange={setUser}/>}</AppShell>{cartOpen && <CartDrawer items={cartItems} onClose={() => setCartOpen(false)} onRemove={removeFromCart} onCheckout={() => { setCartOpen(false); setActivePage('checkout') }}/>}</>
-}
-
+function ProductList({ products, onProduct }) { if (!products.length) return <div className="muted">No products available.</div>; return <div className="products">{products.map((product) => <ProductCard key={product.item_group_id} product={product} onProduct={onProduct} />)}</div> }
+function useProducts() { const [products,setProducts]=useState([]); const [loading,setLoading]=useState(true); const [error,setError]=useState(''); useEffect(()=>{const controller=new AbortController(); async function load(){try{setLoading(true);setError('');const response=await fetch(PRODUCTS_ENDPOINT,{signal:controller.signal});const result=await response.json().catch(()=>null);if(!response.ok||result?.success===false)throw new Error(result?.error||`Request failed: ${response.status}`);setProducts(getProducts(result))}catch(err){if(err.name!=='AbortError')setError(err.message||'Failed to load products')}finally{if(!controller.signal.aborted)setLoading(false)}}load();return()=>controller.abort()},[]);return{products,loading,error} }
+function HomePage({ onProduct }) { const {products,loading,error}=useProducts(); const flashSaleProducts=useMemo(()=>products.filter(product=>String(product.custom_label_0||'').toLowerCase()==='flashsale'),[products]); const recommendedProducts=useMemo(()=>[...products].sort(()=>Math.random()-0.5).slice(0,8),[products]); return <section><div className="hero">Apple Store Malaysia</div>{loading&&<div className="muted">Loading products...</div>}{error&&<div className="error-message">{error}</div>}{!loading&&!error&&<><div className="section-title">FlashSale</div><ProductList products={flashSaleProducts} onProduct={onProduct}/><div className="section-title">Recommeded</div><ProductList products={recommendedProducts} onProduct={onProduct}/></>}</section> }
+function ShopPage({ onProduct }) { const {products,loading,error}=useProducts(); const [filter,setFilter]=useState(''); const [query,setQuery]=useState(''); const productTypes=useMemo(()=>[...new Set(products.map(product=>product.product_type).filter(Boolean))],[products]); const filteredProducts=useMemo(()=>products.filter(product=>(!filter||product.product_type===filter)&&(!query||`${product.title} ${product.item_group_id}`.toLowerCase().includes(query.toLowerCase()))),[products,filter,query]); return <section><input className="search-input" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search products" aria-label="Search products"/><div className="filters"><button className={!filter?'active':''} onClick={()=>setFilter('')}>All</button>{productTypes.map(type=><button key={type} className={filter===type?'active':''} onClick={()=>setFilter(type)}>{type}</button>)}</div>{loading&&<div className="muted">Loading products...</div>}{error&&<div className="error-message">{error}</div>}{!loading&&!error&&<ProductList products={filteredProducts} onProduct={onProduct}/>}</section> }
+function ProfilePage({ onUserChange }) { const [authView,setAuthView]=useState('login'); const [authenticated,setAuthenticated]=useState(false); const [user,setUser]=useState(null); const [phone,setPhone]=useState(''); const [password,setPassword]=useState(''); const [name,setName]=useState(''); const [loading,setLoading]=useState(false); const [error,setError]=useState(''); async function submitAuth(event){event.preventDefault();try{setLoading(true);setError('');const endpoint=authView==='login'?`${USERS_ENDPOINT}/login`:`${USERS_ENDPOINT}/register`;const body=authView==='login'?{phone,password}:{name,phone,password};const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const result=await response.json().catch(()=>null);if(!response.ok||!result?.success)throw new Error(result?.error||'Authentication failed');setUser(result.data);setAuthenticated(true);setPassword('');onUserChange?.(result.data)}catch(err){setError(err.message||'Authentication failed')}finally{setLoading(false)}} if(authenticated)return <div className="account-view"><div className="account-header"><div className="avatar">{user?.name?.charAt(0)||'A'}</div><div><strong>{user?.name||'Account'}</strong><div className="muted">{user?.phone||'Apple Store customer'}</div></div></div><button className="account-item">Personal Information <span>›</span></button><button className="account-item">My Orders <span>›</span></button><button className="account-item">Wishlist <span>›</span></button><button className="account-item">Settings <span>›</span></button><button className="logout-button" onClick={()=>{setAuthenticated(false);setUser(null);onUserChange?.(null)}}>Logout</button></div>; return <form className="auth-view" onSubmit={submitAuth}><h1>{authView==='register'?'Register':'Login'}</h1>{authView==='register'&&<input placeholder="Full name" value={name} onChange={event=>setName(event.target.value)} required/>}<input placeholder="Phone" value={phone} onChange={event=>setPhone(event.target.value)} required/><input placeholder="Password" type="password" value={password} onChange={event=>setPassword(event.target.value)} required/>{error&&<div className="error-message">{error}</div>}<button className="primary-button" type="submit" disabled={loading}>{loading?'Loading...':authView==='register'?'Register':'Login'}</button><button className="link-button" type="button" onClick={()=>{setAuthView(authView==='register'?'login':'register');setError('')}}>{authView==='register'?'Already have an account? Login':'Create account'}</button></form> }
+function ProductDetailPage({ itemGroupId,onBack,onAddToCart,onBuyNow }) { const [product,setProduct]=useState(null);const [selectedColor,setSelectedColor]=useState(null);const [selectedSize,setSelectedSize]=useState(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');useEffect(()=>{const controller=new AbortController();async function load(){try{setLoading(true);setError('');const response=await fetch(`${PRODUCTS_ENDPOINT}/${encodeURIComponent(itemGroupId)}`,{signal:controller.signal});const result=await response.json().catch(()=>null);if(!response.ok||result?.success===false)throw new Error(result?.error||`Request failed: ${response.status}`);const detail=result?.data||result;setProduct(detail);const colors=detail?.variant_color||[];const sizes=detail?.variant_size||[];if(colors.length)setSelectedColor(colors[0]);if(sizes.length)setSelectedSize(sizes[0])}catch(err){if(err.name!=='AbortError')setError(err.message||'Failed to load product')}finally{if(!controller.signal.aborted)setLoading(false)}}if(itemGroupId)load();return()=>controller.abort()},[itemGroupId]);if(loading)return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><div className="muted">Loading product...</div></div>;if(error)return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><div className="error-message">{error}</div></div>;if(!product)return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><div className="muted">Product not found.</div></div>;const price=getProductPrice(product,selectedSize);const colors=product.variant_color||[];const sizes=product.variant_size||[];const add=()=>onAddToCart({product,color:selectedColor,size:selectedSize,price});return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><div className="detail-image">{product?.variant_color?.[0]?.image_link?<img src={product.variant_color[0].image_link} alt={product.title||product.item_group_id||'Product'}/>: 'Product Image'}</div><h1>{product.title||product.item_group_id}</h1>{price>0&&<div className="price">RM {price.toLocaleString('en-MY')}</div>}{colors.length>0&&<div className="detail-section"><strong>Color</strong><div className="option-row">{colors.map((color,index)=>{const value=getVariantValue(color,'color');return <button key={`${value}-${index}`} className={selectedColor===color?'selected':''} onClick={()=>setSelectedColor(color)}>{value}</button>})}</div></div>}{sizes.length>0&&<div className="detail-section"><strong>Storage</strong><div className="option-row">{sizes.map((size,index)=>{const value=getVariantValue(size,'size');return <button key={`${value}-${index}`} className={selectedSize===size?'selected':''} onClick={()=>setSelectedSize(size)}>{value}</button>})}</div></div>}<div className="detail-section"><strong>Description</strong><p>{product.description||'Product description...'}</p></div><div className="detail-actions"><button onClick={add}>Add to Cart</button><button className="primary-button" onClick={()=>onBuyNow({product,color:selectedColor,size:selectedSize,price})}>Buy Now</button></div></div> }
+function CartDrawer({items,onClose,onCheckout,onRemove}){const subtotal=items.reduce((sum,item)=>sum+item.price*item.quantity,0);return <div className="drawer-backdrop" onClick={onClose}><aside className="cart-drawer" onClick={event=>event.stopPropagation()}><div className="drawer-header"><strong>Cart</strong><button onClick={onClose}>×</button></div>{!items.length?<div className="muted">Your cart is empty.</div>:<>{items.map(item=><div className="cart-item" key={item.key}><div className="cart-image">IMG</div><div className="cart-item-info"><strong>{item.product.title}</strong><div>{item.size?getVariantValue(item.size,'size'):''}{item.color?` · ${getVariantValue(item.color,'color')}`:''}</div><div>RM {item.price.toLocaleString('en-MY')} × {item.quantity}</div><button className="remove-button" onClick={()=>onRemove(item.key)}>Remove</button></div></div>)}<div className="order-summary"><span>Subtotal</span><strong>RM {subtotal.toLocaleString('en-MY')}</strong></div><button className="primary-button" onClick={onCheckout}>Proceed Checkout</button></>}</aside></div>}
+function CheckoutPage({onBack,user,items,onOrderCreated}){const [loading,setLoading]=useState(false);const [error,setError]=useState('');const subtotal=items.reduce((sum,item)=>sum+item.price*item.quantity,0);async function placeOrder(){if(!items.length)return setError('Your cart is empty.');try{setLoading(true);setError('');const payload={phone:user?.phone||null,items:items.map(item=>({item_group_id:item.product.item_group_id,title:item.product.title,quantity:item.quantity,price:item.price,color:item.color?getVariantValue(item.color,'color'):null,size:item.size?getVariantValue(item.size,'size'):null})),address:null,store:{name:'Apple Store Malaysia'},shipping:{method:'Delivery'},payment:{method:'Bank Transfer'},subtotal,shipping_fee:0,discount:0,total:subtotal,status:'pending'};const response=await fetch(ORDERS_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json().catch(()=>null);if(!response.ok||!result?.success)throw new Error(result?.error||'Order creation failed');onOrderCreated(result.data?.id)}catch(err){setError(err.message||'Order creation failed')}finally{setLoading(false)}}return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><h1>Checkout</h1><div className="checkout-card"><strong>Delivery Address</strong><p>{user?.name||'Name'} · Address · {user?.phone||'Phone'}</p></div><div className="checkout-card"><strong>Store</strong><p>Apple Store Malaysia</p></div><div className="checkout-card"><strong>Shipping</strong><p>Delivery / Store Pickup</p></div><div className="checkout-card"><strong>Payment</strong><p>Bank Transfer / DuitNow QR</p></div><div className="checkout-card"><strong>Items</strong>{items.map(item=><p key={item.key}>{item.product.title} × {item.quantity} — RM {(item.price*item.quantity).toLocaleString('en-MY')}</p>)}</div><div className="order-summary"><span>Total</span><strong>RM {subtotal.toLocaleString('en-MY')}</strong></div>{error&&<div className="error-message">{error}</div>}<button className="primary-button" onClick={placeOrder} disabled={loading||!items.length}>{loading?'Creating Order...':'Place Order'}</button></div>}
+function TrackingPage({orderId,onBack}){const [order,setOrder]=useState(null);const [loading,setLoading]=useState(Boolean(orderId));const [error,setError]=useState('');useEffect(()=>{const controller=new AbortController();async function load(){try{const response=await fetch(`${ORDERS_ENDPOINT}/${encodeURIComponent(orderId)}`,{signal:controller.signal});const result=await response.json().catch(()=>null);if(!response.ok||result?.success===false)throw new Error(result?.error||`Request failed: ${response.status}`);setOrder(result.data)}catch(err){if(err.name!=='AbortError')setError(err.message||'Failed to load order')}finally{if(!controller.signal.aborted)setLoading(false)}}if(orderId)load();return()=>controller.abort()},[orderId]);return <div className="full-page-content"><button className="back-button" onClick={onBack}>← Back</button><h1>Tracking</h1>{loading&&<div className="muted">Loading order...</div>}{error&&<div className="error-message">{error}</div>}{!loading&&!error&&<div className="tracking-card"><strong>Order #{order?.id||orderId}</strong><div className="tracking-step active">{order?.status||'pending'}</div></div>}</div>}
+function BottomNav({activePage,onNavigate}){return <nav className="bottom-nav"><button className={activePage==='home'?'active':''} onClick={()=>onNavigate('home')}>Home</button><button className={activePage==='shop'?'active':''} onClick={()=>onNavigate('shop')}>Shop</button><button className={activePage==='profile'?'active':''} onClick={()=>onNavigate('profile')}>Profile</button></nav>}
+function AppShell({activePage,onNavigate,onCart,cartCount,children}){return <div className="app-shell"><Header onCart={onCart} cartCount={cartCount}/><main className="main-content">{children}</main><BottomNav activePage={activePage} onNavigate={onNavigate}/></div>}
+function App(){const [activePage,setActivePage]=useState('home');const [selectedProduct,setSelectedProduct]=useState(null);const [cartOpen,setCartOpen]=useState(false);const [cartItems,setCartItems]=useState([]);const [user,setUser]=useState(null);const [orderId,setOrderId]=useState(null);const cartCount=cartItems.reduce((sum,item)=>sum+item.quantity,0);function addToCart({product,color,size,price}){const key=`${product.item_group_id}-${getVariantValue(color,'color')}-${getVariantValue(size,'size')}`;setCartItems(items=>{const existing=items.find(item=>item.key===key);if(existing)return items.map(item=>item.key===key?{...item,quantity:item.quantity+1}:item);return [...items,{key,product,color,size,price,quantity:1}]})}function removeFromCart(key){setCartItems(items=>items.filter(item=>item.key!==key))}function buyNow(item){addToCart(item);setSelectedProduct(null);setActivePage('checkout')}if(selectedProduct)return <ProductDetailPage itemGroupId={selectedProduct} onBack={()=>setSelectedProduct(null)} onAddToCart={item=>{addToCart(item);setSelectedProduct(null)}} onBuyNow={buyNow}/>;if(activePage==='checkout')return <CheckoutPage onBack={()=>setActivePage('home')} user={user} items={cartItems} onOrderCreated={id=>{setOrderId(id);setCartItems([]);setActivePage('tracking')}}/>;if(activePage==='tracking')return <TrackingPage orderId={orderId} onBack={()=>setActivePage('home')}/>;return <><AppShell activePage={activePage} onNavigate={setActivePage} onCart={()=>setCartOpen(true)} cartCount={cartCount}>{activePage==='home'&&<HomePage onProduct={setSelectedProduct}/>} {activePage==='shop'&&<ShopPage onProduct={setSelectedProduct}/>} {activePage==='profile'&&<ProfilePage onUserChange={setUser}/>}</AppShell>{cartOpen&&<CartDrawer items={cartItems} onClose={()=>setCartOpen(false)} onRemove={removeFromCart} onCheckout={()=>{setCartOpen(false);setActivePage('checkout')}}/>}</>}
 export default App
