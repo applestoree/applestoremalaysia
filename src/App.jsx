@@ -67,15 +67,36 @@ function App() {
 
   if (selectedProduct) {
     return (
-      <ProductDetailPage
-        itemGroupId={selectedProduct}
-        onBack={() => setSelectedProduct(null)}
-        onAddToCart={(item) => {
-          addToCart(item)
-          setSelectedProduct(null)
-        }}
-        onBuyNow={buyNow}
-      />
+      <>
+        <ProductDetailPage
+          itemGroupId={selectedProduct}
+          onBack={() => setSelectedProduct(null)}
+          onAddToCart={(item) => {
+            addToCart(item)
+            setSelectedProduct(null)
+          }}
+          onBuyNow={buyNow}
+          onCart={() => setCartOpen(true)}
+          cartCount={cartCount}
+          activePage={activePage}
+          onNavigate={(page) => {
+            setSelectedProduct(null)
+            setActivePage(page)
+          }}
+        />
+        {cartOpen && (
+          <CartDrawer
+            items={cartItems}
+            onClose={() => setCartOpen(false)}
+            onRemove={removeFromCart}
+            onCheckout={() => {
+              setCartOpen(false)
+              setSelectedProduct(null)
+              setActivePage('checkout')
+            }}
+          />
+        )}
+      </>
     )
   }
 
