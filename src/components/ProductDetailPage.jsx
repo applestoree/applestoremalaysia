@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { PRODUCTS_ENDPOINT } from '../constants'
 import { getProductPrice, getVariantValue } from '../utils'
-import Header from './Header'
-import BottomActionBar from './BottomActionBar'
 import VariantBottomSheet from './VariantBottomSheet'
 import StandalonePageLayout from './StandalonePageLayout'
 
@@ -113,13 +111,26 @@ export default function ProductDetailPage({
     <>
       <StandalonePageLayout
         onBack={onBack}
-        header={<Header onCart={onCart} cartCount={cartCount} />}
+        onCart={onCart}
+        cartCount={cartCount}
         bottomAction={
           product && !loading && !error ? (
-            <BottomActionBar
-              onAddToCart={() => openVariantSheet('cart')}
-              onBuyNow={() => openVariantSheet('buy')}
-            />
+            <>
+              <button
+                type="button"
+                className="action-button action-cart-button"
+                onClick={() => openVariantSheet('cart')}
+              >
+                Add to Cart
+              </button>
+              <button
+                type="button"
+                className="primary-button action-button action-buy-button"
+                onClick={() => openVariantSheet('buy')}
+              >
+                Buy Now
+              </button>
+            </>
           ) : null
         }
       >
